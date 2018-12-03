@@ -11,6 +11,8 @@ classdef BigWill_e < handle
         scanConfig;     %stores how the robot performs a scan (number of points, angle between points)
         scanLines;      %the scan configuration stored as 2d lines
         sl;
+        num_of_scans;
+        sens
         step_size;
         rw;
         lw;
@@ -45,6 +47,7 @@ classdef BigWill_e < handle
         bot.ang = 0;
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.setMap([0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105]);
+        bot.num_of_scans = 4;
 %         bot.scanOffset = [0 0];
 %         bot.scanConfig = generateScanConfig(bot,6);
 %         bot.updateScanLines(0,1);
@@ -80,15 +83,15 @@ classdef BigWill_e < handle
         bot.head.WaitFor();
     end
     
-    function scan_dists = get_scans(bot, num_of_scans)
-        scan_dists = zeros(abs(num_of_scans), 1);
+    function scan_dists = get_scans(bot)
+        scan_dists = zeros(abs(bot.num_of_scans), 1);
         scan_dists(1) = bot.front_scan();
-        for i = 2:abs(num_of_scans) 
-            bot.sweep_head(370/num_of_scans)
+        for i = 2:abs(bot.num_of_scans) 
+            bot.sweep_head(370/bot.num_of_scans)
             scan_dists(i) = bot.front_scan();
         end
-        bot.sweep_head(360/num_of_scans-370)
-        if sign(num_of_scans) == -1   % flip if we turning other way
+        bot.sweep_head(360/bot.num_of_scans-370)
+        if sign(bot.num_of_scans) == -1   % flip if we turning other way
            flip(scan_dists)
         end
     end

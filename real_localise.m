@@ -9,28 +9,26 @@
 
 
 
-function [realBot] = real_localise(realBot,map,target)
+function [bot] = real_localise(bot,map,target)
 
 %% setup code
 modifiedMap = map; %you need to do this modification yourself
-realBot.setMap(modifiedMap);
-sens_num = 4;
-realBot.setScanConfig(realBot.generateScanConfig(sens_num))
+bot.setMap(modifiedMap);
 
 %generate some random particles inside the map
 num = 300; % number of particles
 particle(num,1) = BotSim; %how to set up a vector of objects
 part_pos_ang = zeros(num,3);
-part_dists = zeros(num,sens_num);
-sense_scores = zeros(sens_num,1);
+part_dists = zeros(num,bot.num_of_scans);
+sense_scores = zeros(bot.num_of_scans,1);
 weights = zeros(num,1);
 for i = 1:num
     particle(i) = BotSim(modifiedMap);  %each particle should use the same map as the botSim object
     particle(i).randomPose(0); %spawn the particles in random locations
-    particle(i).setScanConfig(particle(i).generateScanConfig(sens_num))
+    particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
     part_pos_ang(i,1:2) = particle(i).getBotPos();
     part_pos_ang(i,3) = particle(i).getBotAng();
-    particle(i).setScanConfig(particle(i).generateScanConfig(sens_num))
+    particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
 end
 
 %% Localisation code
@@ -41,17 +39,17 @@ converged = 0; %The filter has not converged yet
 while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     n = n+1; %increment the current number of iterations
     est_bot_pos_ang = mean(part_pos_ang(1:20,:));
-    bot_dists = realBot.ultraScan(); %get a scan from the real robot.
+    bot_dists = bot.ultraScan(); %get a scan from the real robot.
     if sum(bot_dists==inf) > 0
         break;
     end
     mu = bot_dists;
     sigma = max(max_lim)/10;
-    for i = 1:sens_num; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+    for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
     
     for i = 1:num
         part_dists(i,:) = particle(i).ultraScan();
-        for j = 1:sens_num 
+        for j = 1:bot.num_of_scans 
             sense_scores(j) = pdf(pd(j), part_dists(i,j));
         end
         weights(i) = prod(sense_scores);
@@ -77,12 +75,12 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     end
     
     start = est_bot_pos_ang(1:2);
-    if n > 1 && realBot.pointInsideMap(start)
-        optim_path = a_star(start, target, realBot, 0.8);
+    if n > 1 && bot.pointInsideMap(start)
+        optim_path = a_star(start, target, bot, 0.8);
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);
-        realBot.turn(turn);
+        bot.turn(turn);
         move = max(0.2, sqrt(sum((optim_path(2,:)-optim_path(1,:)).^2)));
-        bot_dists = realBot.ultraScan();
+        bot_dists = bot.ultraScan();
         front_dists = bot_dists(1);
         
         max_dist = 0;
@@ -91,7 +89,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
                 max_dist = max(bot_dists(i),max_dist);
             end
             safe_turn = (find(max_dist==bot_dists)-1)*pi/3;
-            realBot.turn(safe_turn)
+            bot.turn(safe_turn)
             turn = turn+safe_turn;
             move = 5;
         end
@@ -101,7 +99,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         move = 4;
     end
     
-    realBot.move(move);
+    bot.move(move);
 
     for i = 1:num
         particle(i).turn(turn); %turn the particle in the same way as the real robot
@@ -113,21 +111,21 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %estimate bot
     est_bot_pos_ang = mean(part_pos_ang(1:30,:));
     est_bot = BotSim(modifiedMap);
-    est_bot.setScanConfig(realBot.generateScanConfig(sens_num))
+    est_bot.setScanConfig(bot.generateScanConfig(bot.num_of_scans))
     est_bot.setBotPos(est_bot_pos_ang(1:2));
     est_bot.setBotAng(est_bot_pos_ang(3));
-    similar_check = sum(abs(est_bot.ultraScan()-realBot.ultraScan()));
+    similar_check = sum(abs(est_bot.ultraScan()-bot.ultraScan()));
    
     %convergence test
     convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)));
     if convergence_score < 900 || similar_check < 4
-        bot_dists = realBot.ultraScan(); %get a scan from the real robot.
+        bot_dists = bot.ultraScan(); %get a scan from the real robot.
         mu = bot_dists;
         sigma = 8;
-        for i = 1:sens_num; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+        for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
  
         est_part_dists(:) = est_bot.ultraScan();
-        for j = 1:sens_num 
+        for j = 1:bot.num_of_scans 
             sense_scores(j) = pdf(pd(j), est_part_dists(j));
         end
         sense_scores = sort(sense_scores);
@@ -147,10 +145,10 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
 
     %% Drawing
     %only draw if you are in debug mode or it will be slow during marking
-    if realBot.debug()
+    if bot.debug()
         hold off; %the drawMap() function will clear the drawing when hold is off
-        realBot.drawMap(); %drawMap() turns hold back on again, so you can draw the bots
-        realBot.drawBot(10,'g'); %draw robot with line length 30 and green
+        bot.drawMap(); %drawMap() turns hold back on again, so you can draw the bots
+        bot.drawBot(10,'g'); %draw robot with line length 30 and green
         est_bot.drawBot(5);
         scatter(target(1), target(2),'filled')
         for i =1:num
