@@ -9,40 +9,31 @@
 
 
 
-function [bot] = real_localise(bot,map,target)
-
-%% setup code
-modifiedMap = map; %you need to do this modification yourself
-bot.setMap(modifiedMap);
-
+function [bot] = real_localise(bot,target)
+state = 'lost'; %can be lost, localised, or done
 %generate some random particles inside the map
+map = bot.getMap();
 num = 300; % number of particles
-particle(num,1) = BotSim; %how to set up a vector of objects
+particle(num,1) = BotSim; %set up a vector of objects
+max_lim = max(map);
 part_pos_ang = zeros(num,3);
 part_dists = zeros(num,bot.num_of_scans);
 sense_scores = zeros(bot.num_of_scans,1);
 weights = zeros(num,1);
 for i = 1:num
-    particle(i) = BotSim(modifiedMap);  %each particle should use the same map as the botSim object
+    particle(i) = BotSim(map);  %each particle should use the same map as the botSim object
     particle(i).randomPose(0); %spawn the particles in random locations
     particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
-    part_pos_ang(i,1:2) = particle(i).getBotPos();
-    part_pos_ang(i,3) = particle(i).getBotAng();
-    particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
+
 end
 
-%% Localisation code
-max_lim = max(map);
-maxNumOfIterations = 15;
-n = 0;
-converged = 0; %The filter has not converged yet
-while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
-    n = n+1; %increment the current number of iterations
+%%%%%LOST MODE%%%%%
+while STRCOMP(state,'lost')
+    lost_navigate(bot,particle)
+    part_pos_ang(i,1:2) = particle(i).getBotPos();
+    part_pos_ang(i,3) = particle(i).getBotAng();
     est_bot_pos_ang = mean(part_pos_ang(1:20,:));
-    bot_dists = bot.ultraScan(); %get a scan from the real robot.
-    if sum(bot_dists==inf) > 0
-        break;
-    end
+    
     mu = bot_dists;
     sigma = max(max_lim)/10;
     for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
@@ -58,6 +49,26 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     [weights, order] = sort(weights,'descend');
     particle = particle(order);
     part_pos_ang = part_pos_ang(order,:);
+    
+    est_bot_pos_ang = mean(part_pos_ang(1:30,:));
+    est_bot = BotSim(map);
+    est_bot.setScanConfig(bot.generateScanConfig(bot.num_of_scans))
+    est_bot.setBotPos(est_bot_pos_ang(1:2));
+    est_bot.setBotAng(est_bot_pos_ang(3));
+    similar_check = sum(abs(est_bot.ultraScan()-bot.ultraScan()));
+    
+    
+end
+
+
+maxNumOfIterations = 15;
+n = 0;
+converged = 0; %The filter has not converged yet
+while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
+    n = n+1; %increment the current number of iterations
+
+
+
     
     for i = 0:270
         part = particle(end-i);
@@ -110,7 +121,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     
     %estimate bot
     est_bot_pos_ang = mean(part_pos_ang(1:30,:));
-    est_bot = BotSim(modifiedMap);
+    est_bot = BotSim(map);
     est_bot.setScanConfig(bot.generateScanConfig(bot.num_of_scans))
     est_bot.setBotPos(est_bot_pos_ang(1:2));
     est_bot.setBotAng(est_bot_pos_ang(3));

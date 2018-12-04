@@ -5,14 +5,8 @@ classdef BigWill_e < handle
         ang;    %angle of the robot (radians)
         dir;    %angle of the robot (stored as 2d vector)
         map;    %map coordinates with a copy of the first coordiantes at the end
-        mapLines;   %The map stored as a list of lines (for easy line interection)
-        inpolygonMapformatX; %The map stored as a polygon for the insidepoly function
-        inpolygonMapformatY; %The map stored as a polygon for the insidepoly function
-        scanConfig;     %stores how the robot performs a scan (number of points, angle between points)
-        scanLines;      %the scan configuration stored as 2d lines
-        sl;
         num_of_scans;
-        sens
+        dists
         step_size;
         rw;
         lw;
@@ -48,14 +42,6 @@ classdef BigWill_e < handle
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.setMap([0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105]);
         bot.num_of_scans = 4;
-%         bot.scanOffset = [0 0];
-%         bot.scanConfig = generateScanConfig(bot,6);
-%         bot.updateScanLines(0,1);
-%         bot.sensorNoise = noiseLevel(1);  %constant noise model. Error standard deviation in cm
-%         bot.motionNoise = noiseLevel(2);  %proportional noise model. cm error stdDev per unit length in cm/cm
-%         bot.turningNoise = noiseLevel(3); %porportional noise model. Radian stdDev error per radian rad/rad
-%         bot.PosHistory =[];
-%         bot.MoveCount =1;
     end
         
     function dist = front_scan(bot)
@@ -65,6 +51,7 @@ classdef BigWill_e < handle
         for i = 1: scan_num
             scans(i) = GetUltrasonic(SENSOR_2);
         end
+        bot.dists = scans;
         scans(scans == 255) = []; % remove max scan values
         if min(size(scans)) > 0
            s_d = var(scans);
@@ -139,6 +126,10 @@ classdef BigWill_e < handle
             for i =1:size(bot.mapLines,1)
                 bot.mapLines(i,:) = [bot.map(i,:) bot.map(i+1,:)] ;
             end
+    end
+    
+    function map = getMap(bot)
+        map = bot.map;
     end
 end
 end
