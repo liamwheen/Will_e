@@ -32,7 +32,7 @@ while STRCOMP(state,'lost')
     lost_navigate(bot,particle)
     part_pos_ang(i,1:2) = particle(i).getBotPos();
     part_pos_ang(i,3) = particle(i).getBotAng();
-    est_bot_pos_ang = mean(part_pos_ang(1:20,:));
+%     est_bot_pos_ang = mean(part_pos_ang(1:20,:));
     
     mu = bot_dists;
     sigma = max(max_lim)/10;
@@ -50,6 +50,22 @@ while STRCOMP(state,'lost')
     particle = particle(order);
     part_pos_ang = part_pos_ang(order,:);
     
+    for i = 0:270
+        part = particle(end-i);
+        if mod(i, 10) == 0
+            part.randomPose(0);
+        else
+            
+            new_part = datasample(part_pos_ang(1:30,:), 1);
+            pos = new_part(1:2) + ((15-n)/4)*[randn() randn()];
+            ang = new_part(3) + 0.1*randn;
+            part.setBotPos(pos);    
+            part.setBotAng(ang);
+            part_pos_ang(end-i,:) = [pos ang];
+        end
+    end
+    
+    
     est_bot_pos_ang = mean(part_pos_ang(1:30,:));
     est_bot = BotSim(map);
     est_bot.setScanConfig(bot.generateScanConfig(bot.num_of_scans))
@@ -57,17 +73,35 @@ while STRCOMP(state,'lost')
     est_bot.setBotAng(est_bot_pos_ang(3));
     similar_check = sum(abs(est_bot.ultraScan()-bot.ultraScan()));
     
+    %convergence test
+    convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)));
+    if convergence_score < 900 || similar_check < 4
+        bot_dists = bot.ultraScan(); %get a scan from the real robot.
+        mu = bot_dists;
+        sigma = 8;
+        for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+ 
+        est_part_dists(:) = est_bot.ultraScan();
+        for j = 1:bot.num_of_scans 
+            sense_scores(j) = pdf(pd(j), est_part_dists(j));
+        end
+        sense_scores = sort(sense_scores);
+        est_weight = prod(sense_scores(2:end));
+ 
+        if est_weight < 1e-8
+            for i = 1:100
+                part = particle(i);
+                part.randomPose(0);
+            end
+        else
+            state = 'localised';
+        end
+    end
     
 end
 
 
-maxNumOfIterations = 15;
-n = 0;
-converged = 0; %The filter has not converged yet
-while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
-    n = n+1; %increment the current number of iterations
-
-
+while STRCOMP(state, 'localised')
 
     
     for i = 0:270
@@ -86,7 +120,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     end
     
     start = est_bot_pos_ang(1:2);
-    if n > 1 && bot.pointInsideMap(start)
+    if bot.pointInsideMap(start)
         optim_path = a_star(start, target, bot, 0.8);
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);
         bot.turn(turn);
