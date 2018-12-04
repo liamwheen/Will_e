@@ -35,7 +35,7 @@ classdef BigWill_e < handle
         bot.ang = 0;
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.map = [0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];
-        bot.num_of_scans = 4;
+        bot.num_of_scans = 6;
     end
         
     function dist = front_scan(bot)
@@ -81,15 +81,17 @@ classdef BigWill_e < handle
     bot.num_of_scans =  bot.num_of_scans * -1;
     end  
     
-    function moved = move(bot)
-        tach_lim = round(360*bot.step_size/bot.circum);
+    function moved = move(bot, dist)
+        tach_lim = round(360*abs(dist)/bot.circum);
         bot.lw.TachoLimit = tach_lim;
         bot.rw.TachoLimit = tach_lim;
-        bot.lw.Power = 50;
-        bot.rw.Power = 50;
+        bot.lw.Power = sign(dist)*50;
+        bot.rw.Power = sign(dist)*50;
         bot.lw.SendToNXT();
         bot.rw.SendToNXT();
         moved = bot.step_size;
+        bot.rw.WaitFor();
+        bot.lw.WaitFor();
     end
     
     function turned = turn_op(bot, degree) %takes CCW as negative 
@@ -103,6 +105,8 @@ classdef BigWill_e < handle
         bot.lw.SendToNXT()
         bot.rw.SendToNXT()
         turned = degree;
+        bot.rw.WaitFor();
+        bot.lw.WaitFor();
     end
     
     function brake = brake(bot)
