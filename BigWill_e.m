@@ -49,6 +49,9 @@ classdef BigWill_e < handle
         scans(scans == 255) = []; % remove max scan values
         if min(size(scans)) > 0
            s_d = var(scans);
+           if s_d < 1
+               s_d = 1;
+           end
            mean_scans = mean(scans);
            scans(scans > (mean_scans + s_d)) = [];
            scans(scans < (mean_scans - s_d)) = [];
@@ -66,16 +69,17 @@ classdef BigWill_e < handle
     
     function scan_dists = get_scans(bot)
         scan_dists = zeros(abs(bot.num_of_scans), 1);
-        scan_dists(1) = bot.front_scan();
+        scan_dists(1) = bot.front_scan();     
         for i = 2:abs(bot.num_of_scans) 
-            bot.sweep_head(370/bot.num_of_scans)
+            bot.sweep_head(360/bot.num_of_scans)
             scan_dists(i) = bot.front_scan();
         end
-        bot.sweep_head(360/bot.num_of_scans-370)
+%         bot.sweep_head(360/bot.num_of_scans-370)
         if sign(bot.num_of_scans) == -1   % flip if we turning other way
-           flip(scan_dists)
+           scan_dists = flip(scan_dists);
         end
-    end
+    bot.num_of_scans =  bot.num_of_scans * -1;
+    end  
     
     function moved = move(bot)
         tach_lim = round(360*bot.step_size/bot.circum);
@@ -108,7 +112,6 @@ classdef BigWill_e < handle
         bot.rw.SendToNXT()
         brake = true;
     end
-    
 
     function map = getMap(bot)
         map = bot.map;
