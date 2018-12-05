@@ -22,26 +22,32 @@ sense_scores = zeros(bot.num_of_scans,1);
 weights = zeros(num,1);
 for i = 1:num
     particle(i) = BotSim(map);  %each particle should use the same map as the botSim object
-    particle(i).randomPose(0); %spawn the particles in random locations
+    particle(i).randomPose(5); %spawn the particles in random locations
     particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
-
-end
-particle(1).turn(10)
-%%%%%LOST MODE%%%%%
-while strcmp(state,'lost')
-    lost_navigate(bot,particle);
     part_pos_ang(i,1:2) = particle(i).getBotPos();
     part_pos_ang(i,3) = particle(i).getBotAng();
-%     est_bot_pos_ang = mean(part_pos_ang(1:20,:));
-    
+end
+
+%%%%%LOST MODE%%%%%
+while strcmp(state,'lost')
+    bot.get_scans(); %scan around
     mu = bot.dists;
+    ind = find(isnan(mu));
+    mu(ind) = [];
+    if isempty(mu)
+        continue;
+    end
     sigma = max(max_lim)/10;
-    for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+    for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
     
+    good_scans = 1:bot.num_of_scans;
+    good_scans(ind) =[];
     for i = 1:num
         part_dists(i,:) = particle(i).ultraScan();
-        for j = 1:bot.num_of_scans 
-            sense_scores(j) = pdf(pd(j), part_dists(i,j));
+        k = 1;
+        for j = good_scans
+            sense_scores(k) = pdf(pd(k), part_dists(i,j));
+            k=k+1;
         end
         weights(i) = prod(sense_scores);
     end
@@ -58,7 +64,7 @@ while strcmp(state,'lost')
             
             new_part = datasample(part_pos_ang(1:30,:), 1);
 %             pos = new_part(1:2) + ((15-n)/4)*[randn() randn()];
-pos = new_part(1:2) + ((15)/4)*[randn() randn()];
+            pos = new_part(1:2) + ((15)/4)*[randn() randn()];
             ang = new_part(3) + 0.1*randn;
             part.setBotPos(pos);    
             part.setBotAng(ang);
@@ -72,73 +78,74 @@ pos = new_part(1:2) + ((15)/4)*[randn() randn()];
     est_bot.setScanConfig(est_bot.generateScanConfig(bot.num_of_scans))
     est_bot.setBotPos(est_bot_pos_ang(1:2));
     est_bot.setBotAng(est_bot_pos_ang(3));
-%     similar_check = sum(abs(est_bot.ultraScan()- bot.dists));
-    
+    similar_check = sum(abs(est_bot.ultraScan()- bot.dists))
+    hold off; %the drawMap() function will clear the drawing when hold is off
+    particle(1).drawMap(); %drawMap() turns hold back on again, so you can draw the bots
+    est_bot.drawBot(8);
+    scatter(target(1), target(2),'filled')
+    for i =1:num
+        particle(i).drawBot(3); %draw particle with line length 3 and default color
+    end
+    drawnow;
     %convergence test
-    convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)));
-    if convergence_score < 900 % || similar_check < 4
+    convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)))
+    if convergence_score < 900 || similar_check < 4
         bot_dists = bot.get_scans(); %get a scan from the real robot.
         mu = bot_dists;
         sigma = 8;
         for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
 
         % est_bot.ultraScan() is returning empty vector...
-%         est_part_dists(:) = est_bot.ultraScan();
-%         for j = 1:bot.num_of_scans 
-%             sense_scores(j) = pdf(pd(j), est_part_dists(j));
-%         end
-%         sense_scores = sort(sense_scores);
-%         est_weight = prod(sense_scores(2:end));
-%  
-%         if est_weight < 1e-8
-%             for i = 1:100
-%                 part = particle(i);
-%                 part.randomPose(0);
-%             end
-%         else
-%             state = 'localised';
-%         end
+        est_part_dists(:) = est_bot.ultraScan();
+        for j = 1:bot.num_of_scans 
+            sense_scores(j) = pdf(pd(j), est_part_dists(j));
+        end
+        sense_scores = sort(sense_scores);
+        est_weight = prod(sense_scores(2:end));
+ 
+        if est_weight < 1e-8
+            for i = 1:100
+                part = particle(i);
+                part.randomPose(0);
+            end
+        else
+            state = 'localised'
+        end
+    end
+    
+    lost_navigate(bot,particle);
+    for i = 1:num
+        part_pos_ang(i,1:2) = particle(i).getBotPos();
+        part_pos_ang(i,3) = particle(i).getBotAng();
     end
     
 end
 
 
 while strcmp(state, 'localised')
-
-    
-    for i = 0:270
-        part = particle(end-i);
-        if mod(i, 10) == 0
-            part.randomPose(0);
-        else
-            
-            new_part = datasample(part_pos_ang(1:30,:), 1);
-            pos = new_part(1:2) + ((15-n)/4)*[randn() randn()];
-            ang = new_part(3) + 0.1*randn;
-            part.setBotPos(pos);    
-            part.setBotAng(ang);
-            part_pos_ang(end-i,:) = [pos ang];
-        end
-    end
     
     start = est_bot_pos_ang(1:2);
-    if bot.pointInsideMap(start)
-        optim_path = a_star(start, target, bot, 0.8);
+    if est_bot.pointInsideMap(start)
+        optim_path = a_star(start, target, est_bot, 3);
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);
-        bot.turn(turn);
+        bot.turn_op(turn);
+        est_bot.(turn);
         move = max(0.2, sqrt(sum((optim_path(2,:)-optim_path(1,:)).^2)));
-        bot_dists = bot.ultraScan();
-        front_dists = bot_dists(1);
-        
-        max_dist = 0;
-        if front_dists < move
-            for i = 1:length(bot_dists)
-                max_dist = max(bot_dists(i),max_dist);
+
+        front_dist = bot.front_scan();
+
+        if front_dist < move
+
+            if front_dist-move > -3
+                move = move-3;
+            else
+                disp('PROBLEM IN REAL LOCALISE')
             end
-            safe_turn = (find(max_dist==bot_dists)-1)*pi/3;
-            bot.turn(safe_turn)
-            turn = turn+safe_turn;
-            move = 5;
+%             safe_turn = (find(max_dist==bot_dists)-1)*pi/3;
+%             bot.turn(safe_turn)
+%             est_bot.turn(safe_turn)
+%             turn = turn+safe_turn;
+%             move = 5;
         end
 
     else
