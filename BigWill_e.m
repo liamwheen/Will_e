@@ -35,7 +35,7 @@ classdef BigWill_e < handle
         bot.ang = 0;
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.map = [0,0;66,0;66,44;44,44;44,66;110,66;110,110;0,110];
-        bot.num_of_scans = 8;
+        bot.num_of_scans = 10;
     end
         
     function dist = front_scan(bot)
@@ -43,19 +43,26 @@ classdef BigWill_e < handle
         scan_num = 10;
         scans = zeros(scan_num, 1);
         for i = 1: scan_num
-            scans(i) = GetUltrasonic(SENSOR_2);
+            scans(i) = GetUltrasonic(SENSOR_2)
         end
-        scans(scans == 80) = []; % remove max scan values
-        if min(size(scans)) > 0
-           s_d = var(scans);
-           if s_d < 1
-               s_d = 1;
-           end
-           mean_scans = mean(scans);
-           scans(scans > (mean_scans + s_d)) = [];
-           scans(scans < (mean_scans - s_d)) = [];
-        end
+        std = sqrt(var(scans));
+        my_mode = mode(scans);
+        if length(unique(scans)) == length(scans); my_mode=median(scans);end
+        scans = scans(scans >= my_mode-std);
+        scans = scans(scans <= my_mode+std);
         dist = mean(scans);
+        if var(scans)>10; dist = nan;end
+
+%         if min(size(scans)) > 0
+%            s_d = var(scans);
+%            if s_d < 1
+%                s_d = 1;
+%            end
+%            mean_scans = mean(scans);
+%            scans(scans > (mean_scans + s_d)) = [];
+%            scans(scans < (mean_scans - s_d)) = [];
+%         end
+%         dist = mean(scans);
         
     end
     
