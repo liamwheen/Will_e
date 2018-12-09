@@ -46,7 +46,7 @@ classdef BigWill_e < handle
         mode_counter = zeros(abs(bot.num_of_scans), 1);
         mode_counter(1) = bot.get_scan_variance();    
         for i = 2:abs(bot.num_of_scans)
-            bot.sweep_head(375/bot.num_of_scans)
+            bot.sweep_head(385/bot.num_of_scans)
             mode_counter(i) = bot.get_scan_variance();
         end
         % reset back head postion
@@ -65,6 +65,7 @@ classdef BigWill_e < handle
         for i = 1: scan_num
             scans(i) = GetUltrasonic(SENSOR_2);
         end
+
         mode_counter = 0;
         my_mode = mode(scans);
         for i = 1: scan_num
@@ -81,8 +82,10 @@ classdef BigWill_e < handle
         end
         if length(unique(scans)) == length(scans); dist = nan; return ;end
         my_mode = mode(scans);
-        out_range = find(abs(scans-my_mode)>3, 1);
-        if ~isempty(out_range); dist = nan; return; end
+        error = my_mode/10; 
+        error = max([error, 2]);
+        out_range = find(abs(scans-my_mode)>error);
+        if length(out_range)>2; dist = nan; return; end
         dist = mean(scans);
     end
     
@@ -94,18 +97,44 @@ classdef BigWill_e < handle
     end
     
     function scan_dists = get_scans(bot)
-        scan_dists = zeros(abs(bot.num_of_scans), 1);
+        scan_dists = nan*ones(abs(bot.num_of_scans), 1);
         scan_dists(1) = bot.front_scan();     
         for i = 2:abs(bot.num_of_scans) 
             bot.sweep_head(360/bot.num_of_scans)
             scan_dists(i) = bot.front_scan();
+%             if scan_dists(i) < 15
+%                 position = getfield(bot.head.ReadFromNXT(), 'Position');
+%                 bot.sweep_head(-position);
+%                 bot.dists = scan_dists;
+%                 return
+%             end
         end
         position = getfield(bot.head.ReadFromNXT(), 'Position');
         bot.sweep_head(-position);
-        scan_dists(scan_dists > 110) = nan;
+%         scan_dists(scan_dists > 80) = nan;
         scan_dists(scan_dists == -1) = nan;
-
+        
         scan_dists
+        
+        %prune potentially incorrect readings - comparing neighbours
+%         temp_dists = scan_dists;
+%         dist = temp_dists(1);
+%         if temp_dists(bot.num_of_scans)+20 < dist || isnan(temp_dists(bot.num_of_scans))|| temp_dists(2)+20 < dist || isnan(temp_dists(2))
+%             scan_dists(1) = nan;
+%         end
+%         for ind = 2:bot.num_of_scans-1
+%             dist = temp_dists(ind);
+%             if temp_dists(ind-1)+20 < dist || isnan(temp_dists(ind-1))|| temp_dists(ind+1)+20 < dist || isnan(temp_dists(ind+1))
+%                 scan_dists(ind) = nan;
+%             end
+%         end
+%             
+%         dist = temp_dists(bot.num_of_scans);
+%         if temp_dists(1)+20 < dist || isnan(temp_dists(1))|| temp_dists(bot.num_of_scans-1)+20 < dist || isnan(temp_dists(bot.num_of_scans-1))
+%             scan_dists(bot.num_of_scans) = nan;
+%         end
+        
+        
         bot.dists = scan_dists;
 %         bot.sweep_head(360/bot.num_of_scans-370)
 %         if sign(bot.num_of_scans) == -1   % flip if we turning other way
@@ -113,13 +142,38 @@ classdef BigWill_e < handle
 %         end
 %     bot.num_of_scans =  bot.num_of_scans * -1;
     end  
+   function scan_dists = test_scans(bot)
+       scan_num = 10;
+        scan_dists = zeros( scan_num, abs(bot.num_of_scans));
+        scan_dists(:, 1) = bot.test_front_scan(scan_num)   
+        for i = 2:abs(bot.num_of_scans) 
+            bot.sweep_head(360/bot.num_of_scans)
+            scan_dists(:, i) = bot.test_front_scan(scan_num)
+        end
+        position = getfield(bot.head.ReadFromNXT(), 'Position');
+        bot.sweep_head(-position);
+        bot.dists = scan_dists;
+%         bot.sweep_head(360/bot.num_of_scans-370)
+%         if sign(bot.num_of_scans) == -1   % flip if we turning other way
+%            scan_dists = flip(scan_dists);
+%         end
+%     bot.num_of_scans =  bot.num_of_scans * -1;
+   end  
+    
+   function scans = test_front_scan(bot, scan_num)
+%         make a more accurate way of returning a distance ??
+        scans = zeros(scan_num, 1);
+        for i = 1: scan_num
+            scans(i) = GetUltrasonic(SENSOR_2);
+        end
+    end
     
     function moved = move(bot, dist)
         tach_lim = round(360*abs(dist)/bot.circum);
         bot.lw.TachoLimit = tach_lim;
         bot.rw.TachoLimit = tach_lim;
-        bot.lw.Power = sign(dist)*50;
-        bot.rw.Power = sign(dist)*50;
+        bot.lw.Power = sign(dist)*64;
+        bot.rw.Power = sign(dist)*80;
         bot.lw.SendToNXT();
         bot.rw.SendToNXT();
         moved = bot.step_size;
