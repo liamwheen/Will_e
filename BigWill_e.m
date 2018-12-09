@@ -35,35 +35,21 @@ classdef BigWill_e < handle
         bot.ang = 0;
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.map = [0,0;66,0;66,44;44,44;44,66;110,66;110,110;0,110];
-        bot.num_of_scans = 10;
+        bot.num_of_scans = 8;
     end
         
     function dist = front_scan(bot)
 %         make a more accurate way of returning a distance ??
-        scan_num = 10;
+        scan_num = 20;
         scans = zeros(scan_num, 1);
         for i = 1: scan_num
-            scans(i) = GetUltrasonic(SENSOR_2)
+            scans(i) = GetUltrasonic(SENSOR_2);
         end
-        std = sqrt(var(scans));
+        if length(unique(scans)) == length(scans); dist = nan; return ;end
         my_mode = mode(scans);
-        if length(unique(scans)) == length(scans); my_mode=median(scans);end
-        scans = scans(scans >= my_mode-std);
-        scans = scans(scans <= my_mode+std);
+        out_range = find(abs(scans-my_mode)>2, 1);
+        if ~isempty(out_range); dist = nan; return; end
         dist = mean(scans);
-        if var(scans)>10; dist = nan;end
-
-%         if min(size(scans)) > 0
-%            s_d = var(scans);
-%            if s_d < 1
-%                s_d = 1;
-%            end
-%            mean_scans = mean(scans);
-%            scans(scans > (mean_scans + s_d)) = [];
-%            scans(scans < (mean_scans - s_d)) = [];
-%         end
-%         dist = mean(scans);
-        
     end
     
     function sweep_head(bot, angle)
@@ -82,12 +68,13 @@ classdef BigWill_e < handle
         end
         position = getfield(bot.head.ReadFromNXT(), 'Position');
         bot.sweep_head(-position);
-        if any(scan_dists == -1)
-            pause(10);
-            disp('got a -1 dist, not sure what it means')
+        scan_dists(scan_dists > 110) = nan;
+        num_nans = find(isnan(scan_dists));
+        if length(num_nans) > bot.num_of_scans - 3
+            bot.turn_op(15);
+            bot.get_scans();
         end
-        scan_dists(scan_dists > 100) = nan;
-        scan_dists(scan_dists == -1) = nan;
+        scan_dists
         bot.dists = scan_dists;
 %         bot.sweep_head(360/bot.num_of_scans-370)
 %         if sign(bot.num_of_scans) == -1   % flip if we turning other way

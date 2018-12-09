@@ -3,21 +3,21 @@ function lost_navigate(bot, parts)
     num = length(parts);
     too_close = 10;
     dists = bot.dists;
-    dist = -1;
-    sort_dist = sort(dists,'descend');
-    sort_dist(isnan(sort_dist))=[];
-    while dist == -1 && length(sort_dist)>2
-        ind = find(dists==sort_dist(1));
-        dist = dists(ind);
-        if ind == 1; dists = circshift(dists,1); ind = ind+1;end
-        if ind == length(dists); dists = circshift(dists,-1); ind = ind-1;end
-        if dists(ind-1)+20 < dist || isnan(dists(ind-1))|| dists(ind+1)+20 < dist || isnan(dists(ind+1))
-            sort_dist(1) = [];
-            dist = -1;
-        end
-    end
-    if dist == -1; dist = max(dists);end
-    ind = find(bot.dists==dist);
+    [dist, ind] = max(dists);
+%     dist = -1;
+%     sort_dist = sort(dists,'descend');
+%     sort_dist(isnan(sort_dist))=[];
+%     while dist == -1 && length(sort_dist)>2
+%         ind = find(dists==sort_dist(1));
+%         dist = dists(ind);
+%         if ind == 1; dists = circshift(dists,1); ind = ind+1;end
+%         if ind == length(dists); dists = circshift(dists,-1); ind = ind-1;end
+%         if dists(ind-1)+20 < dist || isnan(dists(ind-1))|| dists(ind+1)+20 < dist || isnan(dists(ind+1))
+%             sort_dist(1) = [];
+%             dist = -1;
+%         end
+%     end
+%     if dist == -1; dist = max(dists);end
     [min_dist, min_ind] = min(dists);
 
     dest_ang = 360*(ind-1)/abs(bot.num_of_scans);
