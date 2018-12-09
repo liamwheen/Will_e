@@ -43,5 +43,6 @@ function lost_navigate(bot, parts)
     for i = 1:num
         parts(i).turn(dest_ang); %turn the particle in the same way as the real robot
         parts(i).move(dest_dist); %move the particle in the same way as the real robot
+        if ~parts(i).insideMap(); parts(i).randomPose(5);end
     end   
 end

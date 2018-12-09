@@ -30,15 +30,25 @@ end
 
 iter = 1;
 %%%%%LOST MODE%%%%%
+% bot.move_to_good_scan()
 while strcmp(state,'lost') && iter<15
     bot.get_scans(); %scan around
+    num_nans = find(isnan(bot.dists));
+    while length(num_nans) > bot.num_of_scans - 3
+        bot.turn_op(15);
+        for i = 1:num
+            particle(i).turn(-0.2618); %turn the particle in the same way as the real robot
+        end
+        bot.get_scans();
+        num_nans = find(isnan(bot.dists));
+    end
     mu = bot.dists;
     ind = find(isnan(mu));
     mu(ind) = [];
     if isempty(mu)
         continue;
     end
-    sigma = max(max_lim)/10;
+    sigma = 6;
     for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
     
     good_scans = 1:bot.num_of_scans;
@@ -50,7 +60,7 @@ while strcmp(state,'lost') && iter<15
             sense_scores(k) = pdf(pd(k), part_dists(i,j));
             k=k+1;
         end
-        weights(i) = prod(sense_scores);
+        weights(i) = prod(sense_scores(sense_scores~=0));
     end
     
     [weights, order] = sort(weights,'descend');
@@ -61,8 +71,7 @@ while strcmp(state,'lost') && iter<15
         part = particle(end-i);
         if mod(i, 10) == 0
             part.randomPose(5);
-        else
-            
+        else          
             new_part = datasample(part_pos_ang(1:50,:), 1);
             pos = new_part(1:2) + ((20-iter)/4)*[randn() randn()];
             ang = new_part(3) + 0.2*randn;
@@ -73,30 +82,25 @@ while strcmp(state,'lost') && iter<15
     end
     
     
-    est_bot_pos_ang = mean(part_pos_ang(1:50,:));
+%     est_bot_pos_ang = mean(part_pos_ang(1:50,:));
+    est_bot_pos_ang = part_pos_ang(1,:);
     est_bot = BotSim(map);
-    thresh = 49;
-    while ~est_bot.pointInsideMap(est_bot_pos_ang(1:2)) && thresh >= 1
-        est_bot_pos_ang = mean(part_pos_ang(1:thresh,:));
-        thresh = thresh-1;
-    end
+%     thresh = 49;
+%     while ~est_bot.pointInsideMap(est_bot_pos_ang(1:2)) && thresh > 1
+%         est_bot_pos_ang = mean(part_pos_ang(1:thresh,:));
+%         thresh = thresh-1;
+%     end
+
     est_bot.setScanConfig(est_bot.generateScanConfig(bot.num_of_scans))
     est_bot.setBotPos(est_bot_pos_ang(1:2));
     est_bot.setBotAng(est_bot_pos_ang(3));
     
-    similar_check = sum(abs(est_bot.ultraScan()- bot.dists))
-    hold off; %the drawMap() function will clear the drawing when hold is off
-    particle(1).drawMap(); %drawMap() turns hold back on again, so you can draw the bots
-    est_bot.drawBot(20);
-    scatter(target(1), target(2),'filled')
-    for i = 1:num
-        particle(i).drawBot(3); %draw particle with line length 3 and default color
-    end
-    drawnow;
+    %---IF USED ACCOUNT FOR NANS IN DISTS-----
+%     similar_check = sum(abs(est_bot.ultraScan()- bot.dists))
+
     %convergence test
     convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)))
-    if convergence_score < 900 || similar_check < 30
-        bot_dists = bot.get_scans(); %get a scan from the real robot.
+    if convergence_score < 900 % || similar_check < 30
         
         mu = bot.dists;
         ind = find(isnan(mu));
