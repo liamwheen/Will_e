@@ -171,7 +171,7 @@ while strcmp(state, 'localised')
     
     start = est_bot_pos_ang(1:2)
     if est_bot.pointInsideMap(start)
-        optim_path = a_star(start, target, est_bot, 3)
+        optim_path = a_star(start, target, est_bot, 5)
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);   
         dest_ang = -360*turn/(2*pi);
         if dest_ang < -180
@@ -201,8 +201,11 @@ while strcmp(state, 'localised')
                 disp('PROBLEM IN REAL LOCALISE')
             end
         end
-    
-        [dist_moved, ang_turned] = bot.move(move);
+        if length(optim_path) == 2
+            [dist_moved, ang_turned] = bot.move_final(move);
+        else
+            [dist_moved, ang_turned] = bot.move(move);
+        end
         est_bot.move(dist_moved);
         est_bot.turn(-ang_turned*pi/180);
         
@@ -227,8 +230,14 @@ while strcmp(state, 'localised')
             dest_ang = det_dest_ang(est_bot.getBotPos(), target) - est_bot_pos_ang(3);
             dest_dist = sqrt(sum((est_bot.getBotPos()-target).^2));
             if dest_dist < 25
-                bot.turn_op(-180*dest_ang/pi);
-                bot.move(dest_dist);
+                ang = -360*dest_ang/(2*pi);
+                if ang < -180
+                    ang = ang + 360;
+                elseif ang > 180
+                    ang = ang - 360;
+                end
+                bot.turn_op(ang);
+                bot.move_final(dest_dist);part_pos_ang
             end
             gucci_tune()           
             state = 'done';
@@ -242,7 +251,58 @@ end
 end
 
 
+% function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle_count, part_dists, weights, part_pos_ang, est_bot, spread)
+%     bot.get_scans();
+%     num_nans = find(isnan(bot.dists));
+%     while length(num_nans) > bot.num_of_scans - 3
+%         bot.turn_op(15);
+%         bot.get_scans();
+%         num_nans = find(isnan(bot.dists));
+%     end
+%     mu = bot.dists;
+%     ind = find(isnan(mu));
+%     mu(ind) = [];
+%     sigma = 5;
+%     for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+%     good_scans = 1:bot.num_of_scans;
+%     good_scans(ind) =[];
+%     sense_scores = zeros(length(good_scans),1);
+%     
+%     particle(particle_count,1) = BotSim;
+%     for i = 1:particle_count
+%         particle(i) = BotSim(bot.getMap());  %each particle should use the same map as the botSim object
+%         particle(i).randomPose(10); %spawn the particles in random locations
+%         particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
+%         particle(i).setBotPos(est_bot.getBotPos() + spread*[randn randn]);
+%         particle(i).setBotAng(est_bot.getBotAng() + spread*randn/50);
+%         if ~particle(i).insideMap(); particle(i).randomPose(10);end
+%         part_dists(i,:) = particle(i).ultraScan();
+%         part_dists(i,2:end) = part_dists(i,end:-1:2);
+%         part_pos_ang(i,1:2) = particle(i).getBotPos();
+%         part_pos_ang(i,3) = particle(i).getBotAng();
+%         k = 1;
+%         for j = good_scans
+%             sense_scores(k) = pdf(pd(k), part_dists(i,j));
+%             k=k+1;
+%         end
+%         weights(i) = prod(sense_scores(sense_scores~=0));
+%     end
+%    
+%     [weights, order] = sort(weights,'descend');
+%     particle = particle(order);
+%     part_pos_ang = part_pos_ang(order,:);
+%     
+%     disp('localised')
+%     disp(part_pos_ang(1,:))
+%     bot.cur_tim = bot.cur_tim + toc;
+%     gucci_tune()
+%     input('Press key')
+%     tic
+% end
 function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle_count, part_dists, weights, part_pos_ang, est_bot, spread)
+    weights = zeros([particle_count, 1]);
+    part_dists = zeros([particle_count, 8]);
+    part_pos_ang = zeros([particle_count, 3]);
     bot.get_scans();
     num_nans = find(isnan(bot.dists));
     while length(num_nans) > bot.num_of_scans - 3
@@ -291,7 +351,6 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
     tic
 end
 
-
 function dest_ang = det_dest_ang(bot_pos, dest)
     if bot_pos(1)<=dest(1) %check dest is in the right half of bots grid
         dest_ang = mod(atan((dest(2)-bot_pos(2))/(dest(1)-bot_pos(1))), 2*pi);
@@ -333,13 +392,13 @@ function chosen_index = roulette_sample(cumulative_probs, sum_of_probs)
 end
 
 function gucci_tune()
-        for i = 200:800
+        for i = 1400:1000
             NXT_PlayTone(i, 50)
         end
-        for i = 600:1000
+        for i = 1000:600
             NXT_PlayTone(i, 50)
         end
-        for i = 1000:1400
+        for i = 800:400
             NXT_PlayTone(i, 50)
         end      
 end

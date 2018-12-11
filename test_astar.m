@@ -1,4 +1,4 @@
-target = [90,90];
+target = [50,10];
 bot = BigWill_e;
 est_bot_pos_ang = [44, 22, 0];
 state = 'localised';
@@ -9,7 +9,7 @@ while strcmp(state, 'localised')
     
     start = est_bot_pos_ang(1:2);
     if est_bot.pointInsideMap(start)
-        optim_path = a_star(start, target, est_bot, 3)
+        optim_path = a_star(start, target, est_bot, 5)
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);
         bot.turn_op(-360*turn/(2*pi));
         360*turn/(2*pi)

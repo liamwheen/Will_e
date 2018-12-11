@@ -217,6 +217,30 @@ classdef BigWill_e < handle
         bot.rw.SendToNXT();
         bot.rw.WaitFor();
         bot.lw.WaitFor();
+     end
+    
+     function [moved, turned] = move_final(bot, dist)
+        bot.rw.ResetPosition();
+        tach_lim = round(360*abs(dist)/bot.circum);
+        bot.lw.TachoLimit = tach_lim;
+        bot.rw.TachoLimit = tach_lim;
+        bot.lw.Power = sign(dist)*70;
+        bot.rw.Power = sign(dist)*70;
+
+        bot.rw.SendToNXT();
+        bot.lw.SendToNXT();
+        while getfield(bot.rw.ReadFromNXT(), 'IsRunning')
+            if GetSwitch(SENSOR_3) == 1
+               bot.lw.Stop('brake') 
+               bot.rw.Stop('brake')
+               pause(0.2)
+               moved = getfield(bot.rw.ReadFromNXT(), 'Position')*bot.circum/360;
+               turned = 0;
+               return
+            end
+        end
+        moved = getfield(bot.rw.ReadFromNXT(), 'Position')*bot.circum/360;
+        turned = 0;
     end
     
     function turned = turn_op(bot, degree) %takes CCW as negative 

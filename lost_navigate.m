@@ -12,7 +12,7 @@ function lost_navigate(bot, parts)
        dest_ang = dest_ang - 360;
     end
 
-    dest_dist = min(randi([40,80]), dist-5);          %step at most 10 in that direction
+    dest_dist = min(randi([40,80]), dist-10);          %step at most 10 in that direction
 %     dest_dist = 40 + 10*(rand -0.5);
     
     if min_ang > 180
