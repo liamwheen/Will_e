@@ -110,9 +110,9 @@ function [optim_path] = a_star(start, dest, rob, bot_rad, low_res)
             
             i = 2;
             while i < length(optim_path) %pruning redundant nodes
-                p0 = floor(optim_path(i-1,:));
-                p1 = floor(optim_path(i,:));
-                p2 = floor(optim_path(i+1,:));
+                p0 = round(optim_path(i-1,:));
+                p1 = round(optim_path(i,:));
+                p2 = round(optim_path(i+1,:));
                 %check the dy/dx of two edges, if same, remove middle node
                 if (p2(2)-p1(2))/(p2(1)-p1(1)) == (p1(2)-p0(2))/(p1(1)-p0(1))
                     optim_path(i,:) = [];

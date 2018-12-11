@@ -18,7 +18,7 @@ classdef BigWill_e < handle
     methods
         
     function bot = BigWill_e()
-        
+        tic;
         COM_CloseNXT all
         h = COM_OpenNXT();
         COM_SetDefaultNXT(h);
@@ -29,6 +29,7 @@ classdef BigWill_e < handle
         bot.head = NXTMotor('B');
         bot.head.ResetPosition();
         OpenUltrasonic(SENSOR_2)
+        OpenSwitch(SENSOR_3)
         bot.pos = [0 0];
         bot.step_size = 5;
         diameter = 3.75;
@@ -37,7 +38,7 @@ classdef BigWill_e < handle
         bot.ang = 0;
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.map = [0,0;66,0;66,44;44,44;44,66;110,66;110,110;0,110];
-        bot.num_of_scans = 12;
+        bot.num_of_scans = 8;
     end
     
     function move_to_good_scan(bot)
@@ -75,7 +76,7 @@ classdef BigWill_e < handle
         
     function dist = front_scan(bot)
 %         make a more accurate way of returning a distance ??
-        scan_num = 10;
+        scan_num = 15;
         scans = zeros(scan_num, 1);
         for i = 1: scan_num
             scans(i) = GetUltrasonic(SENSOR_2);
@@ -91,7 +92,7 @@ classdef BigWill_e < handle
     
     function sweep_head(bot, angle)
         bot.head.TachoLimit = round(abs(angle));
-        bot.head.Power = sign(angle) * 100;
+        bot.head.Power = sign(angle) * 60;
         bot.head.SendToNXT();
         bot.head.WaitFor();
     end
@@ -100,7 +101,7 @@ classdef BigWill_e < handle
         scan_dists = nan*ones(abs(bot.num_of_scans), 1);
         scan_dists(1) = bot.front_scan();     
         for i = 2:abs(bot.num_of_scans) 
-            bot.sweep_head(360/bot.num_of_scans)
+            bot.sweep_head(370/bot.num_of_scans)
             scan_dists(i) = bot.front_scan();
 %             if scan_dists(i) < 15
 %                 position = getfield(bot.head.ReadFromNXT(), 'Position');
@@ -110,13 +111,13 @@ classdef BigWill_e < handle
 %             end
         end
         position = getfield(bot.head.ReadFromNXT(), 'Position');
-        bot.sweep_head(-position);
+        bot.sweep_head(-position-2);
 %         scan_dists(scan_dists > 80) = nan;
         scan_dists(scan_dists == -1) = nan;
         
         scan_dists
         
-        %prune potentially incorrect readings - comparing neighbours
+%         %prune potentially incorrect readings - comparing neighbours
 %         temp_dists = scan_dists;
 %         dist = temp_dists(1);
 %         if temp_dists(bot.num_of_scans)+20 < dist || isnan(temp_dists(bot.num_of_scans))|| temp_dists(2)+20 < dist || isnan(temp_dists(2))
@@ -142,8 +143,9 @@ classdef BigWill_e < handle
 %         end
 %     bot.num_of_scans =  bot.num_of_scans * -1;
     end  
+        
    function scan_dists = test_scans(bot)
-       scan_num = 10;
+       scan_num = 15;
         scan_dists = zeros( scan_num, abs(bot.num_of_scans));
         scan_dists(:, 1) = bot.test_front_scan(scan_num)   
         for i = 2:abs(bot.num_of_scans) 
@@ -160,23 +162,57 @@ classdef BigWill_e < handle
 %     bot.num_of_scans =  bot.num_of_scans * -1;
    end  
     
-   function scans = test_front_scan(bot, scan_num)
+   function [scans, dist] = test_front_scan(bot, scan_num)
 %         make a more accurate way of returning a distance ??
         scans = zeros(scan_num, 1);
         for i = 1: scan_num
             scans(i) = GetUltrasonic(SENSOR_2);
         end
+        if length(unique(scans)) == length(scans); dist = nan; return ;end
+        my_mode = mode(scans);
+        error = my_mode/10; 
+        error = max([error, 2]);
+        out_range = find(abs(scans-my_mode)>error)
+        if length(out_range)>2; dist = nan; return; end
+        dist = mean(scans);
     end
     
-    function moved = move(bot, dist)
+    function [moved, turned] = move(bot, dist)
+        bot.rw.ResetPosition();
         tach_lim = round(360*abs(dist)/bot.circum);
         bot.lw.TachoLimit = tach_lim;
         bot.rw.TachoLimit = tach_lim;
-        bot.lw.Power = sign(dist)*64;
-        bot.rw.Power = sign(dist)*80;
+        bot.lw.Power = sign(dist)*100;
+        bot.rw.Power = sign(dist)*100;
+
+        bot.rw.SendToNXT();
+        bot.lw.SendToNXT();
+        while getfield(bot.rw.ReadFromNXT(), 'IsRunning')
+            if GetSwitch(SENSOR_3) == 1
+               bot.lw.Stop('brake') 
+               bot.rw.Stop('brake')
+               pause(0.2)
+               bot.move_hit_wall(-17)
+               moved = getfield(bot.rw.ReadFromNXT(), 'Position')*bot.circum/360;
+               bot.turn_op(25)
+               turned = 25;
+               return
+            end
+        end
+        bot.rw.WaitFor();
+        bot.lw.WaitFor();
+        moved = getfield(bot.rw.ReadFromNXT(), 'Position')*bot.circum/360;
+        turned = 0;
+    end
+    
+     function move_hit_wall(bot, dist)
+        tach_lim = round(360*abs(dist)/bot.circum);
+        bot.lw.TachoLimit = tach_lim;
+        bot.rw.TachoLimit = tach_lim;
+        bot.lw.Power = sign(dist)*100;
+        bot.rw.Power = sign(dist)*100;
         bot.lw.SendToNXT();
         bot.rw.SendToNXT();
-        moved = bot.step_size;
         bot.rw.WaitFor();
         bot.lw.WaitFor();
     end

@@ -1,5 +1,5 @@
 function lost_navigate(bot, parts)
-
+    toc
     num = length(parts);
     too_close = 15;
     dists = bot.dists;
@@ -27,7 +27,8 @@ function lost_navigate(bot, parts)
     end
 
     dest_dist = min(randi([10,19]), dist-2);          %step at most 10 in that direction
-    
+    dest_dist = 40;
+    dest_dist = 40 + 10*(rand -0.5)
     if min_ang > 180
        min_ang = min_ang - 360;
     end
@@ -38,11 +39,13 @@ function lost_navigate(bot, parts)
         dest_dist = -10;
     end
     bot.turn_op(dest_ang);
-    bot.move(dest_dist);
+    [moved, turned] = bot.move(dest_dist);
     dest_ang = -pi*dest_ang/180;
+    turned = -pi*turned/180;
     for i = 1:num
         parts(i).turn(dest_ang); %turn the particle in the same way as the real robot
-        parts(i).move(dest_dist); %move the particle in the same way as the real robot
+        parts(i).move(moved); %move the particle in the same way as the real robot
+        parts(i).turn(turned); % if the robot hit wall, reversed then turned
         if ~parts(i).insideMap(); parts(i).randomPose(5);end
     end   
     hold off
