@@ -128,7 +128,7 @@ while strcmp(state,'lost') && toc<125
 %         est_score = prod(sense_scores(end-min(3,good_count-1):end));
         
         state = 'localised'
-        gucci_tune()
+        localised_tune()
         est_bot_pos_ang = part_pos_ang(1,:)
         bot.cur_tim = toc;
         input('Press Key')
@@ -223,7 +223,7 @@ while strcmp(state, 'localised')
         est_bot_pos_ang = [pos(1), pos(2), est_bot.getBotAng()];
 
         if sum(abs(est_bot.getBotPos()-target))<2
-            [~, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, , est_bot, 14);
+            [~, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 14);
             
             est_bot.setBotPos(part_pos_ang(1,1:2));
             est_bot.setBotAng(part_pos_ang(1,3));
@@ -236,8 +236,10 @@ while strcmp(state, 'localised')
                 elseif ang > 180
                     ang = ang - 360;
                 end
+                
+                if 
                 bot.turn_op(ang);
-                bot.move_final(dest_dist);part_pos_ang
+                bot.move_final(dest_dist);
             end
             gucci_tune()           
             state = 'done';
@@ -301,7 +303,8 @@ end
 % end
 function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle_count, part_dists, weights, part_pos_ang, est_bot, spread)
     weights = zeros([particle_count, 1]);
-    
+    part_dists = zeros([particle_count, 8]);
+    part_pos_ang = zeros([particle_count, 3]);
     bot.get_scans();
     num_nans = find(isnan(bot.dists));
     while length(num_nans) > bot.num_of_scans - 3
@@ -345,7 +348,7 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
     disp('localised')
     disp(part_pos_ang(1,:))
     bot.cur_tim = bot.cur_tim + toc;
-    gucci_tune()
+    localised_tune()
     input('Press key')
     tic
 end
@@ -388,6 +391,18 @@ function chosen_index = roulette_sample(cumulative_probs, sum_of_probs)
             break
         end
     end  
+end
+
+function localised_tune()
+    for i = 400:800
+            NXT_PlayTone(i, 50)
+        end
+        for i = 600:1000
+            NXT_PlayTone(i, 50)
+        end
+        for i = 1000:1400
+            NXT_PlayTone(i, 50)
+        end 
 end
 
 function gucci_tune()

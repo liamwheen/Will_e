@@ -117,8 +117,6 @@ classdef BigWill_e < handle
 %         scan_dists(scan_dists > 80) = nan;
         scan_dists(scan_dists == -1) = nan;
         
-        scan_dists
-        
 %         %prune potentially incorrect readings - comparing neighbours
 %         temp_dists = scan_dists;
 %         dist = temp_dists(1);

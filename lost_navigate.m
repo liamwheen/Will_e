@@ -34,10 +34,10 @@ function lost_navigate(bot, parts)
         parts(i).turn(turned); % if the robot hit wall, reversed then turned
         if ~parts(i).insideMap(); parts(i).randomPose(5);end
     end   
-    hold off
-    parts(1).drawMap()
-    for i =1:num
-            parts(i).drawBot(3); %draw particle with line length 3 and default color
-    end
-    drawnow;
+%     hold off
+%     parts(1).drawMap()
+%     for i =1:num
+%             parts(i).drawBot(3); %draw particle with line length 3 and default color
+%     end
+%     drawnow;
 end

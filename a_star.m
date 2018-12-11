@@ -31,7 +31,7 @@ function [optim_path] = a_star(start, dest, rob, bot_rad, low_res)
     %add goal back in if removed
     safe_list_coords(end,:) = dest_point;
 
-    scatter(X(1,safe_list_coords(:,1)), Y(safe_list_coords(:,2)),5,'filled')
+%     scatter(X(1,safe_list_coords(:,1)), Y(safe_list_coords(:,2)),5,'filled')
 
     dest_point = round_to_point(dest, X, Y);
     start_point = round_to_point(start, X, Y);
@@ -80,34 +80,39 @@ function [optim_path] = a_star(start, dest, rob, bot_rad, low_res)
             optim_path = [start; X(1,optim_path_points(:,1))' Y(optim_path_points(:,2),1); dest];
 %             plot(optim_path(:,1), optim_path(:,2))
             %check for any points crossing through walls
-            x_coords = optim_path(:,1);
-            y_coords = optim_path(:,2);
-            x_res = [];
-            y_res = [];
-            for i = 1:length(x_coords)-1
-                x_res = [x_res(1:end-1) linspace(x_coords(i),x_coords(i+1), 6)];
-                y_res = [y_res(1:end-1) linspace(y_coords(i),y_coords(i+1), 6)];
-            end
-
-            inds = find(~rob.pointInsideMap([x_res' y_res'])); %in terms of high res
-            real_inds = unique(floor(inds/5)); %in terms of actual path indices
-            adj_inds = find(real_inds-circshift(real_inds,1)==1); %check if multiple points are of map in a row
-
-            ind = 1;
+            
+            
+%             x_coords = optim_path(:,1);
+%             y_coords = optim_path(:,2);
+%             x_res = [];
+%             y_res = [];
+%             for i = 1:length(x_coords)-1
+%                 x_res = [x_res(1:end-1) linspace(x_coords(i),x_coords(i+1), 6)];
+%                 y_res = [y_res(1:end-1) linspace(y_coords(i),y_coords(i+1), 6)];
+%             end
+% 
+%             inds = find(~rob.pointInsideMap([x_res' y_res'])); %in terms of high res
+%             real_inds = unique(floor(inds/5)); %in terms of actual path indices
+%             adj_inds = find(real_inds-circshift(real_inds,1)==1); %check if multiple points are of map in a row
+% 
+%             ind = 1;
             %if found, resample those unsafe areas with high res
             %this method will be too costly for cw2
-            while ind <= length(real_inds)
-                interp_start = optim_path(max(real_inds(ind),1),:);
-                end_ind = ind+sum(ismember(ind+1:ind+5,adj_inds));   
-                interp_end = optim_path(real_inds(end_ind)+2,:);
-                orig_path_length = length(optim_path);
-                replace_path = a_star(interp_start, interp_end, rob, bot_rad, high_res);
-                optim_path = [optim_path(1:real_inds(ind)-1,:); replace_path; optim_path(real_inds(end_ind)+3:end,:)];
-                length_change = length(optim_path)-orig_path_length;
-                real_inds = real_inds+length_change;
-                ind=end_ind+1;
-            end
+%             while ind <= length(real_inds)
+%                 interp_start = optim_path(max(real_inds(ind),1),:);
+%                 end_ind = ind+sum(ismember(ind+1:ind+5,adj_inds));   
+%                 interp_end = optim_path(real_inds(end_ind)+2,:);
+%                 orig_path_length = length(optim_path);
+%                 replace_path = a_star(interp_start, interp_end, rob, bot_rad, high_res);
+%                 optim_path = [optim_path(1:real_inds(ind)-1,:); replace_path; optim_path(real_inds(end_ind)+3:end,:)];
+%                 length_change = length(optim_path)-orig_path_length;
+%                 real_inds = real_inds+length_change;
+%                 ind=end_ind+1;
+%             end
             
+
+
+
             i = 2;
             while i < length(optim_path) %pruning redundant nodes
                 p0 = round(optim_path(i-1,:));
@@ -121,7 +126,7 @@ function [optim_path] = a_star(start, dest, rob, bot_rad, low_res)
                 end
             end
             
-            plot(optim_path(:,1), optim_path(:,2))
+%             plot(optim_path(:,1), optim_path(:,2))
             drawnow;
             break
         end

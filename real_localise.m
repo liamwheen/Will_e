@@ -102,7 +102,7 @@ while strcmp(state,'lost') && toc<125
 %     similar_check = sum(abs(est_bot.ultraScan()- bot.dists))
 
     %convergence test
-    convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)))
+    convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)));
     if convergence_score < 800 % || similar_check < 30
         %------PERHAPS DO SCANS AGAIN WITH MUCH MORE--------
 %         mu = bot.dists;
@@ -128,7 +128,7 @@ while strcmp(state,'lost') && toc<125
 %         est_score = prod(sense_scores(end-min(3,good_count-1):end));
         
         state = 'localised'
-        gucci_tune()
+        localised_tune()
         est_bot_pos_ang = part_pos_ang(1,:)
         bot.cur_tim = toc;
         input('Press Key')
@@ -148,7 +148,7 @@ while strcmp(state,'lost') && toc<125
             part_pos_ang(i,3) = part_pos_ang(i,3)+2*pi;
         end
     end
-    iter=iter+1
+    iter=iter+1;
 end
 
 
@@ -169,9 +169,9 @@ end
 %------FOUND MODE------
 while strcmp(state, 'localised')
     
-    start = est_bot_pos_ang(1:2)
+    start = est_bot_pos_ang(1:2);
     if est_bot.pointInsideMap(start)
-        optim_path = a_star(start, target, est_bot, 5)
+        optim_path = a_star(start, target, est_bot, 5);
         turn = det_dest_ang(start, optim_path(2,:)) - est_bot_pos_ang(3);   
         dest_ang = -360*turn/(2*pi);
         if dest_ang < -180
@@ -188,7 +188,7 @@ while strcmp(state, 'localised')
             if 0.2 > mod(est_bot.getBotAng(),pi/2) || 1.4 < mod(est_bot.getBotAng(),pi/2)
                 est_dist = est_bot.ultraScan();
                 if est_dist(1) < 50 && est_dist > 6
-                    disp('ERROR IN NAVIGATION - WALL ISNT WHERE WE THOUGHT')
+%                     disp('ERROR IN NAVIGATION - WALL ISNT WHERE WE THOUGHT')
                 end
             end
         end
@@ -198,7 +198,7 @@ while strcmp(state, 'localised')
             if front_dist-move > -3
                 move = move-3;
             else
-                disp('PROBLEM IN REAL LOCALISE')
+%                 disp('PROBLEM IN REAL LOCALISE')
             end
         end
         if length(optim_path) == 2
@@ -236,12 +236,22 @@ while strcmp(state, 'localised')
                 elseif ang > 180
                     ang = ang - 360;
                 end
+                
+                if abs(ang) > 90 && dest_dist<10
+                    if ang<0 
+                        ang = ang+180;
+                    else
+                        ang = ang-180;
+                    end
+                    dest_dist = -dest_dist;
+                end
+                        
                 bot.turn_op(ang);
-                bot.move_final(dest_dist);part_pos_ang
+                bot.move_final(dest_dist);
             end
             gucci_tune()           
             state = 'done';
-            disp('Gucci')
+            disp('ARRIVED AT TARGET')
         end
     end
 
@@ -346,7 +356,7 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
     disp('localised')
     disp(part_pos_ang(1,:))
     bot.cur_tim = bot.cur_tim + toc;
-    gucci_tune()
+    localised_tune()
     input('Press key')
     tic
 end
@@ -389,6 +399,18 @@ function chosen_index = roulette_sample(cumulative_probs, sum_of_probs)
             break
         end
     end  
+end
+
+function localised_tune()
+        for i = 400:1000
+            NXT_PlayTone(i, 70)
+        end
+        for i = 600:1400
+            NXT_PlayTone(i, 70)
+        end
+        for i = 8000:1800
+            NXT_PlayTone(i, 70)
+        end 
 end
 
 function gucci_tune()
