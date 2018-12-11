@@ -1,7 +1,9 @@
 function new_paths = add_adj(step, curr_path, safe_list_coords, solved_points)
     new_paths = {};   
     %perim = [step 0; step step;0 step; -step step; -step 0; -step -step; 0 -step; step -step];
-    [x, y] = meshgrid([-step:-1 0 1:step]);
+%     [x, y] = meshgrid([-step:-1 0 1:step]);
+    x = [1 0 -1 0];
+    y = [0 1 0 -1];
     perim_list = [x(:) y(:)];
     adj_points = curr_path(end,:)+perim_list;
     %adj_points = curr_path(end, :)+perim;

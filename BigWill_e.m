@@ -1,6 +1,7 @@
 classdef BigWill_e < handle
      
     properties
+        cur_tim;
         pos;    %position of the robot
         ang;    %angle of the robot (radians)
         dir;    %angle of the robot (stored as 2d vector)
@@ -39,6 +40,7 @@ classdef BigWill_e < handle
         bot.dir = [cos(bot.ang) sin(bot.ang)];
         bot.map = [0,0;66,0;66,44;44,44;44,66;110,66;110,110;0,110];
         bot.num_of_scans = 8;
+        bot.cur_tim = 0;
     end
     
     function move_to_good_scan(bot)
@@ -182,8 +184,8 @@ classdef BigWill_e < handle
         tach_lim = round(360*abs(dist)/bot.circum);
         bot.lw.TachoLimit = tach_lim;
         bot.rw.TachoLimit = tach_lim;
-        bot.lw.Power = sign(dist)*100;
-        bot.rw.Power = sign(dist)*100;
+        bot.lw.Power = sign(dist)*70;
+        bot.rw.Power = sign(dist)*70;
 
         bot.rw.SendToNXT();
         bot.lw.SendToNXT();

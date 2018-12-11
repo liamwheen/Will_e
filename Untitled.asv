@@ -6,5 +6,4 @@ hold off
     drawnow;
     
     
-    NXT_PlayTone(800, 500, h)
-    NXT_GetBatteryLevel(h)
+    NXT_PlayTone(8

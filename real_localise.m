@@ -105,39 +105,36 @@ while strcmp(state,'lost') && toc<125
     convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)))
     if convergence_score < 800 % || similar_check < 30
         %------PERHAPS DO SCANS AGAIN WITH MUCH MORE--------
-        mu = bot.dists;
-        ind = find(isnan(mu));
-        mu(ind) = [];
-        if isempty(mu)
-            continue;
-        end
-        sigma = 9;
-        for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
-
-        good_scans = 1:bot.num_of_scans;
-        good_scans(ind) =[];
-        good_count = length(good_scans);
-        sense_scores = zeros(good_count,1);
-        est_part_dists(:) = est_bot.ultraScan();
-        k = 1;
-        for j = good_scans
-            sense_scores(k) = pdf(pd(k), est_part_dists(j));
-            k=k+1;
-        end
-        sense_scores = sort(sense_scores);
-        est_score = prod(sense_scores(end-min(3,good_count-1):end));
+%         mu = bot.dists;
+%         ind = find(isnan(mu));
+%         mu(ind) = [];
+%         if isempty(mu)
+%             continue;
+%         end
+%         sigma = 9;
+%         for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
+% 
+%         good_scans = 1:bot.num_of_scans;
+%         good_scans(ind) =[];
+%         good_count = length(good_scans);
+%         sense_scores = zeros(good_count,1);
+%         est_part_dists(:) = est_bot.ultraScan();
+%         k = 1;
+%         for j = good_scans
+%             sense_scores(k) = pdf(pd(k), est_part_dists(j));
+%             k=k+1;
+%         end
+%         sense_scores = sort(sense_scores);
+%         est_score = prod(sense_scores(end-min(3,good_count-1):end));
         
-        if false %est_score^(-1/min(4,good_count)) > 20
-            for i = 1:200
-                part = particle(i);
-                part.randomPose(10);
-                iter  = 1;
-            end
-        else
-            state = 'localised'
-            toc
-            break;
-        end
+        state = 'localised'
+        gucci_tune()
+        est_bot_pos_ang = part_pos_ang(1,:)
+        bot.cur_tim = toc;
+        input('Press Key')
+        tic
+        break;
+
     end
     
     lost_navigate(bot,particle);
@@ -162,8 +159,11 @@ if toc > 124 && strcmp(state,'lost')
     
     est_bot.setBotPos(part_pos_ang(1,1:2));
     est_bot.setBotAng(part_pos_ang(1,3));
+    state = 'localised'
     est_bot_pos_ang = part_pos_ang(1,:)
-    state = 'localised';
+    bot.cur_tim = bot.cur_tim + toc;
+    input('Press Key')
+    tic
 end
 
 %------FOUND MODE------
@@ -179,7 +179,6 @@ while strcmp(state, 'localised')
         elseif dest_ang > 180
             dest_ang = dest_ang - 360;
         end
-        
         bot.turn_op(dest_ang);
         est_bot.turn(turn);
         move = max(1, sqrt(sum((optim_path(2,:)-optim_path(1,:)).^2)));
@@ -201,23 +200,18 @@ while strcmp(state, 'localised')
             else
                 disp('PROBLEM IN REAL LOCALISE')
             end
-%             safe_turn = (find(max_dist==bot_dists)-1)*pi/3;
-%             bot.turn(safe_turn)
-%             est_bot.turn(safe_turn)
-%             turn = turn+safe_turn;
-%             move = 5;
         end
-% 
-%     else
-%         turn = 0;
-%         move = 4;
     
         [dist_moved, ang_turned] = bot.move(move);
         est_bot.move(dist_moved);
-        est_bot.turn(-ang_turned*180/pi);
+        est_bot.turn(-ang_turned*pi/180);
         
         if ang_turned > 0 
-            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 15);
+            if toc+bot.cur_tim < 120
+                [~, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 15);
+            else
+                [~, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 2000, part_dists, weights, part_pos_ang, est_bot, 40);
+            end
             est_bot.setBotPos(part_pos_ang(1,1:2));
             est_bot.setBotAng(part_pos_ang(1,3));
         end
@@ -226,33 +220,21 @@ while strcmp(state, 'localised')
         est_bot_pos_ang = [pos(1), pos(2), est_bot.getBotAng()];
 
         if sum(abs(est_bot.getBotPos()-target))<2
-            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 14);
+            [~, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 14);
             
             est_bot.setBotPos(part_pos_ang(1,1:2));
             est_bot.setBotAng(part_pos_ang(1,3));
             dest_ang = det_dest_ang(est_bot.getBotPos(), target) - est_bot_pos_ang(3);
             dest_dist = sqrt(sum((est_bot.getBotPos()-target).^2));
-            if dest_dist < 15
+            if dest_dist < 25
                 bot.turn_op(-180*dest_ang/pi);
                 bot.move(dest_dist);
             end
-                          
+            gucci_tune()           
             state = 'done';
             disp('Gucci')
         end
     end
-    %% Drawing
-
-%         hold off; %the drawMap() function will clear the drawing when hold is off
-%         bot.drawMap(); %drawMap() turns hold back on again, so you can draw the bots
-%         bot.drawBot(10,'g'); %draw robot with line length 30 and green
-%         est_bot.drawBot(5);
-%         scatter(target(1), target(2),'filled')
-%         for i =1:num
-%             particle(i).drawBot(3); %draw particle with line length 3 and default color
-%         end
-%         drawnow;
-
 
 end
 
@@ -301,6 +283,12 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
     particle = particle(order);
     part_pos_ang = part_pos_ang(order,:);
     
+    disp('localised')
+    disp(part_pos_ang(1,:))
+    bot.cur_tim = bot.cur_tim + toc;
+    gucci_tune()
+    input('Press key')
+    tic
 end
 
 
@@ -342,4 +330,16 @@ function chosen_index = roulette_sample(cumulative_probs, sum_of_probs)
             break
         end
     end  
+end
+
+function gucci_tune()
+        for i = 200:800
+            NXT_PlayTone(i, 50)
+        end
+        for i = 600:1000
+            NXT_PlayTone(i, 50)
+        end
+        for i = 1000:1400
+            NXT_PlayTone(i, 50)
+        end      
 end
