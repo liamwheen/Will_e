@@ -4,20 +4,6 @@ function lost_navigate(bot, parts)
     too_close = 15;
     dists = bot.dists;
     [dist, ind] = max(dists);
-%     dist = -1;
-%     sort_dist = sort(dists,'descend');
-%     sort_dist(isnan(sort_dist))=[];
-%     while dist == -1 && length(sort_dist)>2
-%         ind = find(dists==sort_dist(1));
-%         dist = dists(ind);
-%         if ind == 1; dists = circshift(dists,1); ind = ind+1;end
-%         if ind == length(dists); dists = circshift(dists,-1); ind = ind-1;end
-%         if dists(ind-1)+20 < dist || isnan(dists(ind-1))|| dists(ind+1)+20 < dist || isnan(dists(ind+1))
-%             sort_dist(1) = [];
-%             dist = -1;
-%         end
-%     end
-%     if dist == -1; dist = max(dists);end
     [min_dist, min_ind] = min(dists);
 
     dest_ang = 360*(ind-1)/abs(bot.num_of_scans);
@@ -26,9 +12,9 @@ function lost_navigate(bot, parts)
        dest_ang = dest_ang - 360;
     end
 
-    dest_dist = min(randi([10,19]), dist-2);          %step at most 10 in that direction
-    dest_dist = 40;
-    dest_dist = 40 + 10*(rand -0.5)
+    dest_dist = min(randi([40,80]), dist-5);          %step at most 10 in that direction
+%     dest_dist = 40 + 10*(rand -0.5);
+    
     if min_ang > 180
        min_ang = min_ang - 360;
     end

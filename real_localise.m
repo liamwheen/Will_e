@@ -157,9 +157,12 @@ end
 
 
 if toc > 124 && strcmp(state,'lost')
-    [~, ~, ~, part_pos_ang] = rapid_part_filter(bot, particle, part_dists, weights, part_pos_ang, est_bot);
+    [~, ~, ~, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 40);
+    
+    
     est_bot.setBotPos(part_pos_ang(1,1:2));
     est_bot.setBotAng(part_pos_ang(1,3));
+    est_bot_pos_ang = part_pos_ang(1,:)
     state = 'localised';
 end
 
@@ -214,61 +217,20 @@ while strcmp(state, 'localised')
         est_bot.turn(-ang_turned*180/pi);
         
         if ang_turned > 0 
-            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle, part_dists, weights, part_pos_ang, est_bot);
+            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 15);
             est_bot.setBotPos(part_pos_ang(1,1:2));
             est_bot.setBotAng(part_pos_ang(1,3));
         end
-        
-        
+   
         pos = est_bot.getBotPos();
         est_bot_pos_ang = [pos(1), pos(2), est_bot.getBotAng()];
-%         for i = 1:num
-%             particle(i).turn(turn); %turn the particle in the same way as the real robot
-%             particle(i).move(move); %move the particle in the same way as the real robot
-%             part_pos_ang(i,1:2) = particle(i).getBotPos();
-%             part_pos_ang(i,3) = mod(particle(i).getBotAng(), 2*pi);
-%         end
-    
-%     %estimate bot
-%     est_bot_pos_ang = mean(part_pos_ang(1:30,:));
-%     est_bot = BotSim(map);
-%     est_bot.setScanConfig(bot.generateScanConfig(bot.num_of_scans))
-%     est_bot.setBotPos(est_bot_pos_ang(1:2));
-%     est_bot.setBotAng(est_bot_pos_ang(3));
-%     similar_check = sum(abs(est_bot.ultraScan()-bot.ultraScan()));
-   
-%     %convergence test
-%     convergence_score = sum(sqrt(sum((part_pos_ang(1:100,1:2)-circshift(part_pos_ang(1:100,1:2),1)).^2,2)));
-%     if convergence_score < 900 || similar_check < 4
-%         bot_dists = bot.ultraScan(); %get a scan from the real robot.
-%         mu = bot_dists;
-%         sigma = 8;
-%         for i = 1:bot.num_of_scans; pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
-%  
-%         est_part_dists(:) = est_bot.ultraScan();
-%         for j = 1:bot.num_of_scans 
-%             sense_scores(j) = pdf(pd(j), est_part_dists(j));
-%         end
-%         sense_scores = sort(sense_scores);
-%         est_weight = prod(sense_scores(2:end));
-%  
-%         if est_weight < 1e-8
-%             for i = 1:100
-%                 part = particle(i);
-%                 part.randomPose(0);
-%             end
-%         else
-%             if sqrt(sum((est_bot.getBotPos()-target).^2)) < 4
-%                 converged = 1;
-%             end
-%         end
-%     end
+
         if sum(abs(est_bot.getBotPos()-target))<2
-            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle, part_dists, weights, part_pos_ang, est_bot);
+            [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 1000, part_dists, weights, part_pos_ang, est_bot, 14);
             
             est_bot.setBotPos(part_pos_ang(1,1:2));
             est_bot.setBotAng(part_pos_ang(1,3));
-            dest_ang = det_dest_ang(est_bot.getBotPos(), target);
+            dest_ang = det_dest_ang(est_bot.getBotPos(), target) - est_bot_pos_ang(3);
             dest_dist = sqrt(sum((est_bot.getBotPos()-target).^2));
             if dest_dist < 15
                 bot.turn_op(-180*dest_ang/pi);
@@ -298,15 +260,11 @@ end
 end
 
 
-function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle, part_dists, weights, part_pos_ang, est_bot)
+function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, particle_count, part_dists, weights, part_pos_ang, est_bot, spread)
     bot.get_scans();
-    
     num_nans = find(isnan(bot.dists));
     while length(num_nans) > bot.num_of_scans - 3
         bot.turn_op(15);
-        for i = 1:num
-            particle(i).turn(-0.2618); %turn the particle in the same way as the real robot
-        end
         bot.get_scans();
         num_nans = find(isnan(bot.dists));
     end
@@ -315,13 +273,18 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
     mu(ind) = [];
     sigma = 5;
     for i = 1:bot.num_of_scans-length(ind); pd(i) = makedist('Normal','mu',mu(i),'sigma',sigma); end
-    
     good_scans = 1:bot.num_of_scans;
     good_scans(ind) =[];
     sense_scores = zeros(length(good_scans),1);
-    for i = 1:300
-        particle(i).setBotPos(est_bot.getBotPos() + 10*[randn randn]);
-        particle(i).setBotAng(est_bot.getBotAng() + 0.2*randn);
+    
+    particle(particle_count,1) = BotSim;
+    for i = 1:particle_count
+        particle(i) = BotSim(bot.getMap());  %each particle should use the same map as the botSim object
+        particle(i).randomPose(10); %spawn the particles in random locations
+        particle(i).setScanConfig(particle(i).generateScanConfig(bot.num_of_scans))
+        particle(i).setBotPos(est_bot.getBotPos() + spread*[randn randn]);
+        particle(i).setBotAng(est_bot.getBotAng() + spread*randn/50);
+        if ~particle(i).insideMap(); particle(i).randomPose(10);end
         part_dists(i,:) = particle(i).ultraScan();
         part_dists(i,2:end) = part_dists(i,end:-1:2);
         part_pos_ang(i,1:2) = particle(i).getBotPos();
@@ -333,6 +296,7 @@ function [particle, part_dists, weights, part_pos_ang] = rapid_part_filter(bot, 
         end
         weights(i) = prod(sense_scores(sense_scores~=0));
     end
+   
     [weights, order] = sort(weights,'descend');
     particle = particle(order);
     part_pos_ang = part_pos_ang(order,:);
